@@ -1,0 +1,1541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Particle Noise Editor</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin:     0;
+      padding:    0
+    }
+
+    :root {
+      --bg:      #0a0a0f;
+      --surface: #13131a;
+      --border:  rgba(255, 255, 255, 0.08);
+      --text:    #e8e8f0;
+      --muted:   #888;
+      --accent:  #7f77dd;
+      --radius:  10px
+    }
+
+    body {
+      background:     var(--bg);
+      color:          var(--text);
+      font-family:    system-ui, -apple-system, sans-serif;
+      font-size:      13px;
+      min-height:     100vh;
+      display:        flex;
+      flex-direction: column;
+      align-items:    center;
+      padding:        20px 16px 32px;
+      gap:            16px
+    }
+
+    h1 {
+      font-size:      15px;
+      font-weight:    500;
+      letter-spacing: .06em;
+      color:          var(--muted);
+      text-transform: uppercase
+    }
+
+    #canvas-wrap {
+      width:     100%;
+      max-width: 800px;
+      position:  relative
+    }
+
+    canvas {
+      display:       block;
+      width:         100%;
+      border-radius: var(--radius);
+      border:        1px solid var(--border);
+      background:    #000
+    }
+
+    #ui {
+      width:          100%;
+      max-width:      900px;
+      background:     var(--surface);
+      border:         1px solid var(--border);
+      border-radius:  var(--radius);
+      padding:        10px 10px;
+      display:        flex;
+      flex-direction: column;
+      gap:            12px
+    }
+
+    .grid {
+      display:              grid;
+      grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));
+      gap:                  10px 18px
+    }
+
+    .ctrl {
+      display:        flex;
+      flex-direction: column;
+      gap:            4px
+    }
+
+    .ctrl label {
+      font-size:      10px;
+      font-weight:    600;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color:          var(--muted)
+    }
+
+    .ctrl-row {
+      display:     flex;
+      align-items: center;
+      gap:         8px
+    }
+
+    .ctrl-row input[type=range] {
+      flex:               1;
+      -webkit-appearance: none;
+      appearance:         none;
+      height:             3px;
+      border-radius:      2px;
+      background:         rgba(255, 255, 255, 0.12);
+      outline:            none;
+      cursor:             pointer
+    }
+
+    .ctrl-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width:              14px;
+      height:             14px;
+      border-radius:      50%;
+      background:         var(--accent);
+      cursor:             pointer;
+      border:             2px solid #1a1a2e
+    }
+
+    .ctrl-row input[type=range]::-moz-range-thumb {
+      width:         14px;
+      height:        14px;
+      border-radius: 50%;
+      background:    var(--accent);
+      cursor:        pointer;
+      border:        2px solid #1a1a2e
+    }
+
+    .val {
+      font-size:            11px;
+      font-weight:          600;
+      min-width:            40px;
+      text-align:           right;
+      color:                var(--text);
+      font-variant-numeric: tabular-nums
+    }
+
+    .bar {
+      display:     flex;
+      flex-wrap:   wrap;
+      gap:         8px;
+      align-items: center
+    }
+
+    .lbl {
+      font-size:      10px;
+      font-weight:    600;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+      color:          var(--muted)
+    }
+
+    select {
+      font-size:     12px;
+      padding:       5px 10px;
+      border-radius: 6px;
+      border:        1px solid var(--border);
+      background:    #1e1e2a;
+      color:         var(--text);
+      cursor:        pointer;
+      outline:       none
+    }
+
+    select:focus {
+      border-color: var(--accent)
+    }
+
+    button {
+      font-size:      11px;
+      font-weight:    600;
+      padding:        5px 14px;
+      border-radius:  6px;
+      border:         1px solid var(--border);
+      background:     transparent;
+      color:          var(--text);
+      cursor:         pointer;
+      letter-spacing: .04em;
+      transition:     background .15s
+    }
+
+    button:hover {
+      background: rgba(255, 255, 255, 0.06)
+    }
+
+    .section-label {
+      font-size:      10px;
+      font-weight:    600;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      color:          var(--accent);
+      margin-bottom:  -4px
+    }
+
+    optgroup {
+      color:     var(--muted);
+      font-size: 10px
+    }
+  </style>
+</head>
+<body>
+<div id="canvas-wrap">
+  <canvas id="cvs"></canvas>
+</div>
+
+<div class="bar">
+  <span class="lbl">Style</span>
+  <select id="style">
+    <optgroup label="Lightning">
+      <option value="lt_storm">Thunderstorm</option>
+      <option value="lt_ball">Ball Lightning</option>
+      <option value="lt_arc">Tesla Arc</option>
+      <option value="lt_web">Spider Web</option>
+    </optgroup>
+    <optgroup label="Fire">
+      <option value="fire_base">Campfire</option>
+      <option value="fire_inferno">Inferno</option>
+      <option value="fire_embers">Embers &amp; Sparks</option>
+    </optgroup>
+    <optgroup label="Water">
+      <option value="water_ripple">Water Ripple</option>
+      <option value="water_ocean">Ocean Waves</option>
+      <option value="water_rain">Rain &amp; Splash</option>
+    </optgroup>
+    <optgroup label="Flow Fields">
+      <option value="flow" selected>Flow field</option>
+      <option value="vortex">Vortex</option>
+      <option value="wave">Wave pulse</option>
+      <option value="web">Web / threads</option>
+      <option value="spiral">Double spiral</option>
+      <option value="magnetic">Magnetic poles</option>
+      <option value="turbulence">Ridged turbulence</option>
+      <option value="blackhole">Black hole</option>
+      <option value="helix">Helix</option>
+      <option value="torus">Torus knot</option>
+      <option value="reaction">Reaction diffusion</option>
+    </optgroup>
+  </select>
+  <span class="lbl">Palette</span>
+  <select id="pal">
+    <option value="lt_white">White</option>
+    <option value="lt_blue">Blue Plasma</option>
+    <option value="lt_purple">Purple</option>
+    <option value="lt_green">Green</option>
+    <option value="fire">Fire</option>
+    <option value="gold">Gold</option>
+    <option value="cyan">Cyan</option>
+    <option value="ice">Ice</option>
+    <option value="rainbow">Rainbow</option>
+    <option value="sunset">Sunset</option>
+  </select>
+  <button id="btnPause">Pause</button>
+</div>
+
+<div id="ui">
+  <div class="section-label">Particles</div>
+  <div class="grid">
+    <div class="ctrl"><label>Count</label>
+      <div class="ctrl-row">
+        <input type="range" id="pcount" min="100" max="5000" step="100" value="3000"><span class="val" id="vPcount">2000</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Speed</label>
+      <div class="ctrl-row">
+        <input type="range" id="spd" min="0.2" max="6" step="0.1" value="1.6"><span class="val" id="vSpd">1.6</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Particle Size</label>
+      <div class="ctrl-row">
+        <input type="range" id="psize" min="0.3" max="5" step="0.1" value="1.2"><span class="val" id="vPsize">1.2</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Lifetime</label>
+      <div class="ctrl-row">
+        <input type="range" id="life" min="30" max="600" step="10" value="180"><span class="val" id="vLife">180</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Spawn Radius</label>
+      <div class="ctrl-row">
+        <input type="range" id="spawn" min="0.05" max="1" step="0.05" value="0.85"><span class="val" id="vSpawn">0.85</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Opacity</label>
+      <div class="ctrl-row">
+        <input type="range" id="opa" min="0.02" max="1" step="0.01" value="0.55"><span class="val" id="vOpa">0.55</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">Rendering</div>
+  <div class="grid">
+    <div class="ctrl"><label>Bloom Strength</label>
+      <div class="ctrl-row">
+        <input type="range" id="bloom" min="0" max="1" step="0.02" value="0.45"><span class="val" id="vBloom">0.45</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Bloom Radius</label>
+      <div class="ctrl-row">
+        <input type="range" id="bloomR" min="2" max="30" step="1" value="10"><span class="val" id="vBloomR">10</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Vignette</label>
+      <div class="ctrl-row">
+        <input type="range" id="vign" min="0" max="1" step="0.02" value="0.5"><span class="val" id="vVign">0.50</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Chromatic Aberr.</label>
+      <div class="ctrl-row">
+        <input type="range" id="chrom" min="0" max="1" step="0.02" value="0.25"><span class="val" id="vChrom">0.25</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Trail Fade</label>
+      <div class="ctrl-row">
+        <input type="range" id="trail" min="0.005" max="0.4" step="0.005" value="0.06"><span class="val" id="vTrail">0.060</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Color Speed</label>
+      <div class="ctrl-row">
+        <input type="range" id="cspd" min="0" max="3" step="0.05" value="0.4"><span class="val" id="vCspd">0.40</span>
+      </div>
+    </div>
+  </div>
+  <div class="section-label">Noise Field</div>
+  <div class="grid">
+    <div class="ctrl"><label>Noise Scale</label>
+      <div class="ctrl-row">
+        <input type="range" id="nsc" min="0.001" max="0.014" step="0.0002" value="0.004"><span class="val" id="vNsc">0.0040</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Noise Drift</label>
+      <div class="ctrl-row">
+        <input type="range" id="ndrift" min="0" max="0.02" step="0.0005" value="0.003"><span class="val" id="vNdrift">0.0030</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Curl Strength</label>
+      <div class="ctrl-row">
+        <input type="range" id="curl" min="0" max="4" step="0.05" value="1"><span class="val" id="vCurl">1.00</span>
+      </div>
+    </div>
+    <div class="ctrl"><label>Attractor</label>
+      <div class="ctrl-row">
+        <input type="range" id="attr" min="0" max="1" step="0.02" value="0"><span class="val" id="vAttr">0.00</span>
+      </div>
+    </div>
+  </div>
+  <div class="grid">
+    <div class="ctrl fx-row"><label id="lblIntensity">Intensity</label>
+      <div class="ctrl-row">
+        <input type="range" id="fxIntensity" min="0.1" max="2" step="0.05" value="1"><span class="val" id="vFxIntensity">1.00</span>
+      </div>
+    </div>
+    <div class="ctrl fx-row"><label>Spread / Reach</label>
+      <div class="ctrl-row">
+        <input type="range" id="fxSpread" min="0.05" max="1" step="0.02" value="0.5"><span class="val" id="vFxSpread">0.50</span>
+      </div>
+    </div>
+    <div class="ctrl fx-row"><label>Turbulence</label>
+      <div class="ctrl-row">
+        <input type="range" id="fxTurb" min="0" max="3" step="0.05" value="1"><span class="val" id="vFxTurb">1.00</span>
+      </div>
+    </div>
+    <div class="ctrl fx-row lt-row"><label>Strike Rate</label>
+      <div class="ctrl-row">
+        <input type="range" id="ltRate" min="0.005" max="0.25" step="0.005" value="0.06"><span class="val" id="vLtRate">0.060</span>
+      </div>
+    </div>
+    <div class="ctrl fx-row lt-row"><label>Branch Depth</label>
+      <div class="ctrl-row">
+        <input type="range" id="ltDepth" min="1" max="7" step="1" value="4"><span class="val" id="vLtDepth">4</span>
+      </div>
+    </div>
+    <div class="ctrl fx-row lt-row"><label>Spark Count</label>
+      <div class="ctrl-row">
+        <input type="range" id="ltSparks" min="0" max="120" step="5" value="50"><span class="val" id="vLtSparks">50</span>
+      </div>
+    </div>
+    <div class="ctrl fx-row lt-row"><label>Jaggedness</label>
+      <div class="ctrl-row">
+        <input type="range" id="ltJag" min="0.1" max="2" step="0.05" value="0.7"><span class="val" id="vLtJag">0.70</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  (function () {
+    'use strict';
+
+    //angle = atan2(∂n2/∂x, -∂n1/∂y) perfectly divergence-free flow (no sources nor sinks)
+    //so particles swirl endlessly without bunching or spreading
+    const perm = new Uint8Array(512);
+    (function () {
+      const p = new Uint8Array(256);
+      for (let i = 0; i < 256; i++)
+        p[i] = i;
+      for (let i = 255; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        const t = p[i];
+        p[i] = p[j];
+        p[j] = t;
+      }
+      for (let i = 0; i < 512; i++)
+        perm[i] = p[i & 255];
+    })();
+
+    function Fade(t) {
+      return t * t * t * (t * (t * 6 - 15) + 10);
+    }
+
+    function Lerp(a, b, t) {
+      return a + t * (b - a);
+    }
+
+    function Grad2(h, x, y) {
+      const v = h & 3;
+      const u = v < 2 ? x : y;
+      const w = v < 2 ? y : x;
+      return ((h & 1) ? -u : u) + (((h & 2) >> 1) ^ (h & 1) ? -w : w);
+    }
+
+    function Noise2(x, y) {
+      const X = Math.floor(x) & 255;
+      const Y = Math.floor(y) & 255;
+      const xf = x - Math.floor(x);
+      const yf = y - Math.floor(y);
+      const u = Fade(xf);
+      const v = Fade(yf);
+      const a = perm[X] + Y;
+      const b = perm[X + 1] + Y;
+      return Lerp(Lerp(Grad2(perm[a], xf, yf), Grad2(perm[b], xf - 1, yf), u), Lerp(Grad2(perm[a + 1], xf, yf - 1), Grad2(perm[b + 1], xf - 1, yf - 1), u), v);
+    }
+
+    function FBM(x, y, o) {
+      let v = 0;
+      let a = 0.5;
+      let f = 1;
+      let m = 0;
+      for (let i = 0; i < o; i++) {
+        v += Noise2(x * f, y * f) * a;
+        m += a;
+        a *= 0.5;
+        f *= 2.1;
+      }
+      return v / m;
+    }
+
+    function Ridged(x, y, o) {
+      let v = 0;
+      let a = 0.5;
+      let f = 1;
+      let m = 0;
+      for (let i = 0; i < o; i++) {
+        v += (1 - Math.abs(Noise2(x * f, y * f))) * a;
+        m += a;
+        a *= 0.5;
+        f *= 2.1;
+      }
+      return v / m;
+    }
+
+    //finite difference of two offset fbm fields
+    const EPS = 0.01;
+
+    function CurlAngle(x, y, t, sc, octs) {
+      //∂n/∂y (forward diff in y of field A)
+      const n1a = FBM(x * sc + t * 0.07, (y + EPS) * sc, octs);
+      const n1b = FBM(x * sc + t * 0.07, (y - EPS) * sc, octs);
+
+      //∂n/∂x (forward diff in x of field B, offset seed)
+      const n2a = FBM((x + EPS) * sc + 50, y * sc + t * 0.1, octs);
+      const n2b = FBM((x - EPS) * sc + 50, y * sc + t * 0.1, octs);
+      const cx2 = (n1a - n1b) / (2 * EPS);
+      const cy2 = -(n2a - n2b) / (2 * EPS);
+      return Math.atan2(cy2, cx2);
+    }
+
+    //return [r,g,b] 0-255 arrays for speed
+    function HSL2RGB(h, s, l) {
+      s /= 100;
+      l /= 100;
+      const k = n => ((n + h / 30) % 12);
+      const a = s * Math.min(l, 1 - l);
+      const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+      return [Math.round(f(0) * 255), Math.round(f(8) * 255), Math.round(f(4) * 255)];
+    }
+
+    const PAL_FNS = {
+      lt_white: t => [Math.round(200 + t * 55), Math.round(210 + t * 45), 255],
+      lt_blue: t => HSL2RGB(210 + t * 40, 100, 55 + t * 35),
+      lt_purple: t => HSL2RGB(270 + t * 30, 100, 50 + t * 35),
+      lt_green: t => HSL2RGB(130 + t * 30, 100, 40 + t * 40),
+      fire: t => HSL2RGB(t * 60, 100, 30 + t * 60),
+      gold: t => HSL2RGB(35 + t * 25, 90 - t * 20, 40 + t * 40),
+      cyan: t => HSL2RGB(170 + t * 40, 100, 50 + t * 30),
+      ice: t => HSL2RGB(190 + t * 30, 60 + t * 30, 60 + t * 30),
+      rainbow: t => HSL2RGB(t * 360, 90, 60),
+      sunset: t => HSL2RGB(t < 0.5 ? t * 60 : 60 - (t - 0.5) * 120, 90, 40 + t * 30)
+    };
+
+    //color for canvas strokeStyle/fillStyle
+    function PalRGB(key, t, alpha) {
+      const [r, g, b] = PAL_FNS[key] ? PAL_FNS[key](t) : [200, 200, 200];
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    function LtColor(pal, alpha, bright) {
+      const b = bright || 1;
+      const [r, g, bl] = PAL_FNS[pal] ? PAL_FNS[pal](0.8) : [180, 210, 255];
+      return `rgba(${Math.min(255, Math.round(r * b))},${Math.min(255, Math.round(g * b))},${Math.min(255, Math.round(bl * b))},${alpha})`;
+    }
+
+    //dual canvas bloom
+    //offCtx -> particles drawn here at full brightness
+    //main canvas: dark-fade -> offCanvas (sharp) -> offCanvas (blurred, screen) -> vignette
+    const cvs = document.getElementById('cvs');
+    const ctx = cvs.getContext('2d');
+    const off = document.createElement('canvas');
+    const octx = off.getContext('2d');
+    let W;
+    let H;
+    let vigGrad = null; //cached vignette gradient
+
+    function RebuildVignette() {
+      vigGrad = null; //rebuilt lazily in draw
+    }
+
+    function Resize() {
+      const r = cvs.parentElement.getBoundingClientRect();
+      W = Math.round(r.width);
+      H = Math.round(W * 0.52);
+      cvs.width = W;
+      cvs.height = H;
+      off.width = W;
+      off.height = H;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, W, H);
+      octx.fillStyle = 'rgba(0,0,0,0)';
+      octx.clearRect(0, 0, W, H);
+      RebuildVignette();
+    }
+
+    Resize();
+    window.addEventListener('resize', Resize);
+
+    const P = {
+      pcount: 3000,
+      spd: 1.6,
+      psize: 1.2,
+      life: 180,
+      spawn: 0.85,
+      opa: 0.55,
+      bloom: 0.45,
+      bloomR: 10,
+      vign: 0.5,
+      chrom: 0.25,
+      trail: 0.06,
+      cspd: 0.4,
+      nsc: 0.004,
+      ndrift: 0.003,
+      curl: 1,
+      attr: 0,
+      fxIntensity: 1,
+      fxSpread: 0.5,
+      fxTurb: 1,
+      ltRate: 0.06,
+      ltDepth: 4,
+      ltSparks: 50,
+      ltJag: 0.7,
+      style: 'flow'
+    };
+    const binds = [
+      ['pcount', 'vPcount', 0],
+      ['spd', 'vSpd', 1],
+      ['psize', 'vPsize', 1],
+      ['life', 'vLife', 0],
+      ['spawn', 'vSpawn', 2],
+      ['opa', 'vOpa', 2],
+      ['bloom', 'vBloom', 2],
+      ['bloomR', 'vBloomR', 0],
+      ['vign', 'vVign', 2],
+      ['chrom', 'vChrom', 2],
+      ['trail', 'vTrail', 3],
+      ['cspd', 'vCspd', 2],
+      ['nsc', 'vNsc', 4],
+      ['ndrift', 'vNdrift', 4],
+      ['curl', 'vCurl', 2],
+      ['attr', 'vAttr', 2],
+      ['fxIntensity', 'vFxIntensity', 2],
+      ['fxSpread', 'vFxSpread', 2],
+      ['fxTurb', 'vFxTurb', 2],
+      ['ltRate', 'vLtRate', 3],
+      ['ltDepth', 'vLtDepth', 0],
+      ['ltSparks', 'vLtSparks', 0],
+      ['ltJag', 'vLtJag', 2],
+    ];
+
+    binds.forEach(([id, vid, dec]) => {
+      const el = document.getElementById(id);
+      if (!el)
+        return;
+      el.value = P[id];
+      el.addEventListener('input', e => {
+        P[id] = parseFloat(e.target.value);
+        document.getElementById(vid).textContent = P[id].toFixed(dec);
+        if (id === 'pcount') RebuildParticles();
+        if (id === 'vign') RebuildVignette();
+      });
+    });
+
+    function IsLightning() {
+      return P.style.startsWith('lt_');
+    }
+
+    ['style', 'pal'].forEach(id => {
+      document.getElementById(id).addEventListener('change', e => {
+        P[id] = e.target.value;
+        UpdateFxVis();
+        if (!IsLightning())
+          RebuildParticles();
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, W, H);
+        octx.clearRect(0, 0, W, H);
+      });
+    });
+
+    function UpdateFxVis() {
+      const lt = IsLightning();
+      const lbl = document.getElementById('lblIntensity');
+      if (lbl)
+        lbl.textContent = lt ? 'Flash Brightness' : 'Intensity';
+    }
+
+    UpdateFxVis();
+    let wells = [];
+    let poles = [];
+
+    function MakeWells() {
+      wells = [];
+      for (let i = 0; i < 3; i++) wells.push({
+        x: W * 0.2 + Math.random() * W * 0.6,
+        y: H * 0.2 + Math.random() * H * 0.6,
+        s: Math.random() > 0.5 ? 1 : -1
+      });
+      poles = [{x: W * 0.33, y: H * 0.5, s: 1}, {x: W * 0.67, y: H * 0.5, s: -1}];
+    }
+
+    //lighting
+    let bolts = [], sparks = [], ballLt = null, strikeTimer = 0;
+
+    function BuildBolt(x1, y1, x2, y2, depth, jag) {
+      const segs = [];
+
+      function Rec(ax, ay, bx, by, d) {
+        if (d === 0) {
+          segs.push([ax, ay, bx, by]);
+          return;
+        }
+        const mx = (ax + bx) / 2;
+        const my = (ay + by) / 2;
+        const dx = bx - ax;
+        const dy = by - ay;
+        const len = Math.sqrt(dx * dx + dy * dy) + 0.001;
+        const off2 = (Math.random() - 0.5) * len * jag;
+        const px = mx - dy / len * off2;
+        const py = my + dx / len * off2;
+        Rec(ax, ay, px, py, d - 1);
+        Rec(px, py, bx, by, d - 1);
+
+        if (d >= 2 && Math.random() < 0.35) {
+          const bl = len * (0.3 + Math.random() * 0.4);
+          const ba = Math.atan2(by - ay, bx - ax) + (Math.random() - 0.5) * 1.2;
+          Rec(px, py, px + Math.cos(ba) * bl, py + Math.sin(ba) * bl, d - 2);
+        }
+      }
+
+      Rec(x1, y1, x2, y2, depth);
+      return segs;
+    }
+
+    function SpawnSparks(x, y, count, col) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const spd2 = 1 + Math.random() * 4;
+        sparks.push({
+          x,
+          y,
+          px: x,
+          py: y,
+          vx: Math.cos(a) * spd2,
+          vy: Math.sin(a) * spd2,
+          life: 1,
+          decay: 0.02 + Math.random() * 0.04,
+          size: 0.4 + Math.random() * 1.2,
+          col,
+          grav: 0.06 + Math.random() * 0.06
+        });
+      }
+    }
+
+    function TriggerStrike() {
+      const style = P.style;
+      const depth = Math.round(P.ltDepth);
+      const jag = P.ltJag;
+      const sparkN = Math.round(P.ltSparks);
+      const pal = P.pal;
+
+      if (style === 'lt_storm') {
+        const strikes = Math.random() < 0.3 ? 2 : 1;
+        for (let s = 0; s < strikes; s++) {
+          const x1 = W * (0.1 + Math.random() * 0.8);
+          const x2 = x1 + (Math.random() - 0.5) * W * 0.3 * P.fxSpread;
+          const y2 = H * (0.6 + Math.random() * 0.38) * P.fxSpread;
+          bolts.push({
+            segs: BuildBolt(x1, 0, x2, y2, depth, jag),
+            life: 1,
+            decay: 0.08 + Math.random() * 0.08,
+            pal,
+            impact: {x: x2, y: y2}
+          });
+          SpawnSparks(x2, y2, sparkN, pal);
+          if (Math.random() < 0.4) {
+            const x3 = x2 + (Math.random() - 0.5) * 60;
+            bolts.push({
+              segs: BuildBolt(x2, y2, x3, H, Math.max(1, depth - 1), jag * 0.7),
+              life: 0.7,
+              decay: 0.12,
+              pal,
+              impact: null
+            });
+          }
+        }
+      } else if (style === 'lt_arc') {
+        const cx = W / 2;
+        const cy = H * 0.35;
+        const count = 2 + Math.floor(Math.random() * 3);
+
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2;
+          const r = W * 0.15 + Math.random() * W * 0.28 * P.fxSpread;
+          const ex = cx + Math.cos(a) * r;
+          const ey = cy + Math.sin(a) * r;
+          bolts.push({
+            segs: BuildBolt(cx, cy, ex, ey, depth, jag * 1.2),
+            life: 1,
+            decay: 0.1 + Math.random() * 0.1,
+            pal,
+            impact: {x: ex, y: ey}
+          });
+          SpawnSparks(ex, ey, Math.round(sparkN * 0.5), pal);
+        }
+        SpawnSparks(cx, cy, Math.round(sparkN * 0.3), pal);
+      } else if (style === 'lt_web') {
+        const cx2 = W * (0.3 + Math.random() * 0.4);
+        const cy2 = H * (0.2 + Math.random() * 0.6);
+        const arms = 3 + Math.floor(Math.random() * 4);
+        const endpoints = [];
+        for (let i = 0; i < arms; i++) {
+          const a = (i / arms) * Math.PI * 2 + Math.random() * 0.5;
+          const r = W * 0.1 + Math.random() * W * 0.22 * P.fxSpread;
+          const ex = cx2 + Math.cos(a) * r;
+          const ey = cy2 + Math.sin(a) * r;
+          endpoints.push({x: ex, y: ey});
+          bolts.push({
+            segs: BuildBolt(cx2, cy2, ex, ey, depth, jag),
+            life: 1,
+            decay: 0.06 + Math.random() * 0.06,
+            pal,
+            impact: {x: ex, y: ey}
+          });
+          SpawnSparks(ex, ey, Math.round(sparkN * 0.3), pal);
+        }
+        for (let i = 0; i < endpoints.length - 1; i++) {
+          if (Math.random() < 0.5) {
+            const a = endpoints[i], b = endpoints[(i + 1) % endpoints.length];
+            bolts.push({
+              segs: BuildBolt(a.x, a.y, b.x, b.y, Math.max(1, depth - 1), jag * 0.8),
+              life: 0.6,
+              decay: 0.1,
+              pal,
+              impact: null
+            });
+          }
+        }
+        SpawnSparks(cx2, cy2, sparkN, pal);
+      }
+    }
+
+    function InitBallLightning() {
+      ballLt = {
+        x: W * 0.5,
+        y: H * 0.4,
+        vx: (Math.random() - 0.5) * 1.2,
+        vy: (Math.random() - 0.5) * 0.8,
+        radius: 30 + Math.random() * 30,
+        arcTimer: 0,
+        age: 0,
+        maxAge: 300 + Math.random() * 400,
+        hue: Math.random()
+      };
+    }
+
+    function UpdateBallLightning(dt) {
+      if (!ballLt) return;
+      const b = ballLt;
+      b.x += b.vx * dt;
+      b.y += b.vy * dt;
+      b.vx += Noise2(b.x * 0.006 + time * 0.3, b.y * 0.006) * 0.3 * dt;
+      b.vy += Noise2(b.x * 0.006, b.y * 0.006 + time * 0.3) * 0.3 * dt;
+      const spd2 = Math.sqrt(b.vx * b.vx + b.vy * b.vy);
+      if (spd2 > 2) {
+        b.vx = b.vx / spd2 * 2;
+        b.vy = b.vy / spd2 * 2;
+      }
+      if (b.x < b.radius)
+        b.vx = Math.abs(b.vx);
+
+      if (b.x > W - b.radius)
+        b.vx = -Math.abs(b.vx);
+
+      if (b.y < b.radius)
+        b.vy = Math.abs(b.vy);
+
+      if (b.y > H - b.radius)
+        b.vy = -Math.abs(b.vy);
+
+      b.arcTimer += dt;
+      if (b.arcTimer > 3 + Math.random() * 4) {
+        b.arcTimer = 0;
+        const a = Math.random() * Math.PI * 2;
+        const r = b.radius * (0.6 + Math.random() * 0.8);
+        const ex = b.x + Math.cos(a) * r;
+        const ey = b.y + Math.sin(a) * r;
+        bolts.push({
+          segs: BuildBolt(b.x, b.y, ex, ey, 2, P.ltJag * 0.8),
+          life: 0.8,
+          decay: 0.2,
+          pal: P.pal,
+          impact: null
+        });
+        if (Math.random() < 0.3) SpawnSparks(ex, ey, Math.round(P.ltSparks * 0.15), P.pal);
+      }
+      b.age++;
+      if (b.age > b.maxAge) {
+        SpawnSparks(b.x, b.y, Math.round(P.ltSparks * 1.5), P.pal);
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2;
+          const ex = b.x + Math.cos(a) * b.radius * 1.5;
+          const ey = b.y + Math.sin(a) * b.radius * 1.5;
+          bolts.push({segs: BuildBolt(b.x, b.y, ex, ey, 3, P.ltJag), life: 1, decay: 0.08, pal: P.pal, impact: null});
+        }
+        ballLt = null;
+        setTimeout(() => InitBallLightning(), 800 + Math.random() * 1200);
+      }
+    }
+
+    function DrawBallLightning(c) {
+      if (!ballLt)
+        return;
+      const b = ballLt;
+      const life = 1 - b.age / b.maxAge;
+      const r = b.radius;
+      const pal = P.pal;
+      c.save();
+      c.globalCompositeOperation = 'screen';
+      [{r: r * 2.5, a: 0.04 * life}, {r: r * 1.5, a: 0.1 * life}, {r: r * 0.8, a: 0.35 * life}, {
+        r: r * 0.3,
+        a: 0.7 * life
+      }].forEach(({r: cr, a}) => {
+        const g = c.createRadialGradient(b.x, b.y, 0, b.x, b.y, cr);
+        g.addColorStop(0, LtColor(pal, a * 0.6 * 2, 1.2));
+        g.addColorStop(1, LtColor(pal, 0, 1));
+        c.fillStyle = g;
+        c.beginPath();
+        c.arc(b.x, b.y, cr, 0, Math.PI * 2);
+        c.fill();
+      });
+      c.restore();
+    }
+
+    function DrawBolts(c) {
+      if (!bolts.length)
+        return;
+      c.save();
+      c.globalCompositeOperation = 'screen';
+      for (const bolt of bolts) {
+        const l = bolt.life;
+        c.globalAlpha = l * 0.18 * 0.6;
+        c.filter = `blur(${6 * l}px)`;
+        c.lineWidth = 4 * l * (P.psize / 1.2);
+        c.strokeStyle = LtColor(bolt.pal, 1);
+        c.beginPath();
+        for (const [ax, ay, bx, by] of bolt.segs) {
+          c.moveTo(ax, ay);
+          c.lineTo(bx, by);
+        }
+        c.stroke();
+        c.globalAlpha = l * 0.45 * 0.6;
+        c.filter = `blur(${2 * l}px)`;
+        c.lineWidth = 2 * l * (P.psize / 1.2);
+        c.stroke();
+        c.filter = 'none';
+        c.globalAlpha = l * 0.9;
+        c.lineWidth = Math.max(0.5, 1.2 * l * (P.psize / 1.2));
+        c.strokeStyle = LtColor(bolt.pal, 1, 1.3);
+        c.stroke();
+        c.lineWidth = Math.max(0.3, 0.5 * l);
+        c.globalAlpha = l * 0.6;
+        c.strokeStyle = 'rgba(255,255,255,1)';
+        c.stroke();
+      }
+      c.filter = 'none';
+      c.globalAlpha = 1;
+      c.restore();
+    }
+
+    function DrawSparks(c) {
+      if (!sparks.length)
+        return;
+      c.save();
+      c.globalCompositeOperation = 'screen';
+      for (const s of sparks) {
+        c.globalAlpha = s.life * P.opa;
+        c.strokeStyle = LtColor(s.col, s.life, 1 + s.life * 0.3);
+        c.lineWidth = Math.max(0.3, s.size * s.life);
+        c.beginPath();
+        c.moveTo(s.px, s.py);
+        c.lineTo(s.x, s.y);
+        c.stroke();
+      }
+      c.restore();
+    }
+
+    function UpdateBoltsAndSparks(dt) {
+      for (let i = bolts.length - 1; i >= 0; i--) {
+        bolts[i].life -= bolts[i].decay * dt;
+        if (bolts[i].life <= 0)
+          bolts.splice(i, 1);
+      }
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const s = sparks[i];
+        s.px = s.x;
+        s.py = s.y;
+        s.vx += Noise2(s.x * 0.01 + time, s.y * 0.01) * 0.2 * dt;
+        s.vy += s.grav * dt;
+        s.vx *= 0.96;
+        s.vy *= 0.96;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+        s.life -= s.decay * dt;
+        if (s.life <= 0 || s.y > H + 20) sparks.splice(i, 1);
+      }
+    }
+
+    //fire
+    function MkFireParticle(style) {
+      const spread = P.fxSpread;
+      const cx = W / 2;
+      let x;
+      let y;
+      let vx;
+      let vy;
+      let size;
+      let life;
+      let hue;
+      if (style === 'fire_base') {
+        x = cx + (Math.random() - 0.5) * W * spread * 0.5;
+        y = H - 10 + Math.random() * 8;
+        vx = (Math.random() - 0.5) * 0.8;
+        vy = -(1.5 + Math.random() * 2) * P.fxIntensity;
+        size = 2 + Math.random() * 3;
+        life = 40 + Math.random() * 80;
+        hue = Math.random();
+      } else if (style === 'fire_inferno') {
+        x = Math.random() * W;
+        y = H + Math.random() * 5;
+        vx = (Math.random() - 0.5) * 1.5;
+        vy = -(2 + Math.random() * 4) * P.fxIntensity;
+        size = 1 + Math.random() * 4;
+        life = 60 + Math.random() * 120;
+        hue = Math.random();
+      } else {
+        x = cx + (Math.random() - 0.5) * W * spread * 0.6;
+        y = H * 0.6 + Math.random() * H * 0.3;
+        vx = (Math.random() - 0.5) * 3;
+        vy = -(0.5 + Math.random() * 1.5) * P.fxIntensity;
+        size = 0.8 + Math.random() * 1.8;
+        life = 80 + Math.random() * 200;
+        hue = Math.random();
+      }
+      return {x, y, px: x, py: y, vx, vy, size, age: 0, maxAge: life, hue, type: 'fire'};
+    }
+
+    function UpdateFire(p, dt) {
+      const turb = P.fxTurb;
+      p.vx += Noise2(p.x * 0.008 + time * 2, p.y * 0.008) * turb * 1.5 * 0.15 * dt;
+      p.vy += Noise2(p.x * 0.008 + 100, p.y * 0.008 + time * 2) * turb * 0.4 * 0.05 * dt;
+      const heat = 1 - p.age / p.maxAge;
+      p.vy -= heat * 0.12 * P.fxIntensity * dt;
+      p.vx *= 0.97;
+      p.vy *= 0.97;
+      p.px = p.x;
+      p.py = p.y;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.age++;
+      return p.age > p.maxAge || p.y < -20;
+    }
+
+    function DrawFire(p, c) {
+      const life = 1 - p.age / p.maxAge;
+      const heat = life;
+      let r;
+      let g;
+      let b2;
+      let a;
+      if (heat > 0.8) {
+        r = 255;
+        g = 255;
+        b2 = Math.round((heat - 0.8) / 0.2 * 200);
+        a = life * P.opa;
+      } else if (heat > 0.5) {
+        r = 255;
+        g = Math.round((heat - 0.5) / 0.3 * 200 + 55);
+        b2 = 0;
+        a = life * P.opa;
+      } else if (heat > 0.2) {
+        r = 255;
+        g = Math.round((heat - 0.2) / 0.3 * 55);
+        b2 = 0;
+        a = life * P.opa * 0.9;
+      } else {
+        r = Math.round(heat / 0.2 * 200 + 55);
+        g = 0;
+        b2 = 0;
+        a = life * P.opa * 0.6;
+      }
+      const usePal = P.pal !== 'fire';
+      c.lineWidth = Math.max(0.3, p.size * life * (P.psize / 1.2));
+      c.strokeStyle = usePal ? PalRGB(P.pal, p.hue, a) : `rgba(${r},${g},${b2},${a})`;
+      c.beginPath();
+      c.moveTo(p.px, p.py);
+      c.lineTo(p.x, p.y);
+      c.stroke();
+    }
+
+    //water
+    function MkWaterParticle(style) {
+      const cx = W / 2;
+      const cy = H / 2;
+      let x;
+      let y;
+      let vx;
+      let vy;
+      let size;
+      let life;
+      let hue;
+      if (style === 'water_ripple') {
+        const a = Math.random() * Math.PI * 2, r = (0.05 + Math.random() * 0.3) * Math.min(W, H) * 0.5;
+        x = cx + Math.cos(a) * r;
+        y = cy + Math.sin(a) * r;
+        vx = Math.cos(a + Math.PI / 2) * (0.3 + Math.random() * 0.8);
+        vy = Math.sin(a + Math.PI / 2) * (0.3 + Math.random() * 0.8);
+        size = 0.8 + Math.random() * 1.5;
+        life = 80 + Math.random() * 160;
+        hue = Math.random();
+      } else if (style === 'water_ocean') {
+        x = Math.random() * W;
+        y = H * 0.3 + Math.random() * H * 0.5;
+        vx = (1 + Math.random() * 2) * P.fxIntensity * (Math.random() < 0.5 ? 1 : -1);
+        vy = (Math.random() - 0.5) * 0.5;
+        size = 0.6 + Math.random() * 1.8;
+        life = 100 + Math.random() * 200;
+        hue = Math.random();
+      } else {
+        x = Math.random() * W * 1.2 - W * 0.1;
+        y = -10 - Math.random() * H * 0.3;
+        vx = (Math.random() - 0.5) + (P.fxTurb - 1) * 0.5;
+        vy = (3 + Math.random() * 4) * P.fxIntensity;
+        size = 0.5 + Math.random() * 1.2;
+        life = 30 + Math.random() * 80;
+        hue = Math.random();
+      }
+      return {
+        x,
+        y,
+        px: x,
+        py: y,
+        vx,
+        vy,
+        size,
+        age: 0,
+        maxAge: life,
+        hue,
+        type: 'water',
+        splashing: false,
+        gravity: 0
+      };
+    }
+
+    function UpdateWater(p, dt) {
+      const style = P.style;
+      const turb = P.fxTurb;
+      if (style === 'water_ripple') {
+        const cx = W / 2;
+        const cy = H / 2;
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        const r = Math.sqrt(dx * dx + dy * dy) + 1;
+        const angle = Math.atan2(dy, dx);
+        const wave = Math.sin(r * 0.05 - time * 8) * turb * 0.3;
+
+        p.vx += Math.cos(angle + Math.PI / 2) * wave * dt;
+        p.vy += Math.sin(angle + Math.PI / 2) * wave * dt;
+        p.vx += Noise2(p.x * 0.006 + time * 1.5, p.y * 0.006) * turb * 0.08 * dt;
+        p.vy += Noise2(p.x * 0.006, p.y * 0.006 + time * 1.5) * turb * 0.08 * dt;
+        p.vx *= 0.97;
+        p.vy *= 0.97;
+      } else if (style === 'water_ocean') {
+        const waveY = H * 0.5 + Math.sin(p.x * 0.02 + time * 2) * H * 0.08 * P.fxIntensity;
+        p.vx += Noise2(p.x * 0.005 + time * 0.5, p.y * 0.005) * turb * 0.1 * dt;
+        p.vy += (p.y - waveY) * 0.002 * dt;
+        p.vx *= 0.985;
+        p.vy *= 0.985;
+      } else {
+        p.vx += Noise2(p.x * 0.005 + time * 0.3, p.age * 0.02) * turb * 0.05 * dt;
+        p.vy += 0.05 * P.fxIntensity * dt;
+        if (p.y > H - 5 && !p.splashing) {
+          p.splashing = true;
+          p.vy = -Math.abs(p.vy) * 0.2;
+          p.vx += (Math.random() - 0.5) * 2;
+        }
+      }
+      p.px = p.x;
+      p.py = p.y;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.age++;
+      return p.age > p.maxAge || p.y > H + 20 || p.x < -20 || p.x > W + 20;
+    }
+
+    function DrawWater(p, c) {
+      const life = 1 - p.age / p.maxAge;
+      const fadeIn = Math.min(1, p.age / 15);
+      const alpha = P.opa * life * fadeIn;
+      const style = P.style;
+      const col = PalRGB(P.pal, p.hue, alpha);
+      const sz = Math.max(0.3, p.size * life * (P.psize / 1.2));
+      c.strokeStyle = col;
+      c.lineWidth = sz;
+      c.beginPath();
+      c.moveTo(p.px, p.py);
+      c.lineTo(p.x, p.y);
+      c.stroke();
+      if ((style === 'water_rain') && sz > 0.8) {
+        c.fillStyle = col;
+        c.beginPath();
+        c.arc(p.x, p.y, sz * 0.8, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
+
+    //flow-field
+    //curl noise for divergence-free swirl
+    //per-particle mass (heavy = sluggish with momentum)
+    //velocity-based color temperature (fast = bright)
+    //tapered stroke (wide tail -> thin head)
+    //chromatic aberration on fast particles
+    function MkFieldParticle() {
+      const cx = W / 2;
+      const cy = H / 2;
+      const r = Math.random() * P.spawn;
+      const a = Math.random() * Math.PI * 2;
+      const d = Math.min(W, H) * 0.5 * r;
+      return {
+        x: cx + Math.cos(a) * d, y: cy + Math.sin(a) * d,
+        vx: 0, vy: 0,
+        age: 0, maxAge: P.life * 0.5 + Math.random() * P.life,
+        hue: Math.random(), px: 0, py: 0,
+        mass: 0.3 + Math.random() * 0.7, //0.3=light, 1.0=heavy
+        speed: 0,                        //magnitude last frame
+        type: 'field',
+      };
+    }
+
+    function GetAngle(x, y, t) {
+      const turbMul = P.fxTurb;                         //turbulence: scales curl-noise contribution
+      const spreadMul = Math.max(0.1, P.fxSpread * 2);  //spread/reach: rescales radius (neutral at slider default 0.5)
+
+      const sc = P.nsc / spreadMul;
+      const curl = P.curl;
+      const cx = W / 2;
+      const cy = H / 2;
+      const s = P.style;
+
+      //radial styles get their coordinates rescaled around center so the pattern effective reach grows/shrinks
+      const dxR = (x - cx) / spreadMul, dyR = (y - cy) / spreadMul;
+
+      //all flow-field styles now blend true curl noise with their original formula
+      const curlBase = CurlAngle(x, y, t, sc, 4) * curl * turbMul;
+      if (s === 'flow') return curlBase * 2;
+      if (s === 'vortex') {
+        const dist = Math.sqrt(dxR * dxR + dyR * dyR) + 1;
+        return Math.atan2(dyR, dxR) + Math.PI / 2 + curlBase * 1.2 + dist * 0.002;
+      }
+      if (s === 'wave') {
+        const wave = Math.sin(x * 0.012 / spreadMul + t * 0.5) * Math.cos(y * 0.012 / spreadMul + t * 0.3) * curl;
+        return wave * Math.PI + curlBase * 0.4;
+      }
+      if (s === 'web') return Math.atan2(FBM(x * sc + 100, y * sc + t * 0.04, 5), FBM(x * sc + t * 0.04, y * sc, 5)) * curl * 2;
+      if (s === 'spiral') {
+        const r2 = Math.sqrt(dxR * dxR + dyR * dyR) + 1;
+        const theta = Math.atan2(dyR, dxR);
+        return theta + Math.PI / 2 + Math.sin(theta * 2 - r2 * 0.018 + t * 0.6) * curl + curlBase * 0.3;
+      }
+      if (s === 'magnetic') {
+        let fx = 0, fy = 0;
+        poles.forEach(po => {
+          const dx = x - po.x;
+          const dy = y - po.y;
+          const d2 = dx * dx + dy * dy + 200 * spreadMul * spreadMul;
+          const d = Math.sqrt(d2);
+          fx += po.s * (-dy) / (d * d2) * 40000;
+          fy += po.s * dx / (d * d2) * 40000;
+        });
+        return Math.atan2(fy, fx) + curlBase * 0.5;
+      }
+      if (s === 'turbulence')
+        return (Ridged(x * sc * 1.5 + t * 0.08, y * sc * 1.5, 5) - Ridged(x * sc + 50 + t * 0.05, y * sc + 50, 4)) * Math.PI * 3 * curl;
+      if (s === 'blackhole') {
+        const r2 = Math.sqrt(dxR * dxR + dyR * dyR) + 1,
+          blend = Math.min(1, r2 / (Math.min(W, H) * 0.4));
+        return Lerp(Math.atan2(-dyR, -dxR), Math.atan2(dyR, dxR) + Math.PI / 2, blend) * Math.min(4, 800 / r2) * curl * 0.5 + curlBase * (1 - blend) * 0.6;
+      }
+      if (s === 'helix') {
+        const nx = dxR / (W * 0.5);
+        const ny = dyR / (H * 0.5);
+        const h1 = Math.sin(ny * 8 + t * 1.2 + nx * 3) * 0.4;
+        return Math.atan2(h1 - ny * 0.5, 1) * curl + (Math.abs(nx - h1) < 0.15 || Math.abs(nx - (Math.sin(ny * 8 + t * 1.2 + nx * 3 + Math.PI) * 0.4)) < 0.15 ? Math.PI * 0.3 : 0) + curlBase * 0.3;
+      }
+      if (s === 'torus') {
+        const nx = dxR / (W * 0.45), ny = dyR / (H * 0.45), theta = Math.atan2(ny, nx),
+          kX = (2 + 0.5 * Math.cos(2 * theta)) * Math.cos(3 * theta + t * 0.4),
+          kY = (2 + 0.5 * Math.cos(2 * theta)) * Math.sin(3 * theta + t * 0.4);
+        return Math.atan2(kY - ny * 2, kX - nx * 2) * curl + curlBase * 0.4 + (Math.sqrt(kX * kX + kY * kY) * 0.5 - Math.sqrt(nx * nx + ny * ny)) * 2;
+      }
+      if (s === 'reaction') {
+        const sc2 = sc * 2;
+        const u = FBM(x * sc2 + t * 0.06, y * sc2, 4);
+        const v = FBM(x * sc2 + 80 + t * 0.04, y * sc2 + 80, 4);
+        return Math.atan2(0.16 * (FBM(x * sc2 + t * 0.06, y * sc2 + 0.01, 3) - u) - (FBM(x * sc2 + 0.01 + t * 0.04, y * sc2, 3) - v) * 0.04, u - u * v * v - 0.05 * (u - 0.5)) * Math.PI * 2 * curl + t * 0.1;
+      }
+      return 0;
+    }
+
+    //draw a tapered trail thick at tail and thin at head
+    function DrawTaperedLine(c, x0, y0, x1, y1, w0, w1, col) {
+      //use a filled trapezoid for a true taper
+      const dx = x1 - x0, dy = y1 - y0, len = Math.sqrt(dx * dx + dy * dy) + 0.001;
+      const nx = -dy / len, ny = dx / len;
+      const hw0 = w0 / 2, hw1 = w1 / 2;
+      c.beginPath();
+      c.moveTo(x0 + nx * hw0, y0 + ny * hw0);
+      c.lineTo(x1 + nx * hw1, y1 + ny * hw1);
+      c.lineTo(x1 - nx * hw1, y1 - ny * hw1);
+      c.lineTo(x0 - nx * hw0, y0 - ny * hw0);
+      c.closePath();
+      c.fillStyle = col;
+      c.fill();
+    }
+
+    function DrawFieldParticle(p, c) {
+      const lr = 1 - p.age / p.maxAge;
+      const fi = Math.min(1, p.age / 20);
+
+      //velocity-based brightness
+      const maxSpd = P.spd * 2;
+      const velRatio = Math.min(1, p.speed / Math.max(0.01, maxSpd));
+
+      //hue shifted toward hot end when moving fast
+      const hotHue = (p.hue + velRatio * 0.08) % 1;
+      const alpha = P.opa * lr * fi * (0.7 + velRatio * 0.3);
+      const [r, g, b2] = PAL_FNS[P.pal] ? PAL_FNS[P.pal](hotHue) : [200, 200, 200];
+
+      //tail width scales with size
+      //head tapers to ~20% of tail
+      const tailW = Math.max(0.5, P.psize * lr * (1 + velRatio * 0.5));
+      const headW = tailW * 0.18;
+
+      //chromatic aberration on fast particles (offset RGB strokes)
+      if (P.chrom > 0.05 && velRatio > 0.3) {
+        const shift = velRatio * P.chrom * 2.5;
+        const dx = p.x - p.px;
+        const dy = p.y - p.py;
+        const len2 = Math.sqrt(dx * dx + dy * dy) + 0.001;
+        const ox = -dy / len2 * shift;
+        const oy = dx / len2 * shift; //perpendicular offset
+        c.globalAlpha = alpha * 0.5;
+        DrawTaperedLine(c, p.px + ox, p.py + oy, p.x + ox, p.y + oy, tailW, headW, `rgba(${r},0,0,1)`);
+        DrawTaperedLine(c, p.px - ox, p.py - oy, p.x - ox, p.y - oy, tailW, headW, `rgba(0,0,${b2},1)`);
+        c.globalAlpha = alpha;
+        DrawTaperedLine(c, p.px, p.py, p.x, p.y, tailW * 0.8, headW, `rgba(${r},${g},${b2},1)`);
+      } else {
+        c.globalAlpha = alpha;
+        DrawTaperedLine(c, p.px, p.py, p.x, p.y, tailW, headW, `rgba(${r},${g},${b2},1)`);
+      }
+      c.globalAlpha = 1;
+    }
+
+    //warm start
+    function PreAge(p, steps) {
+      if (p.type === 'fire') {
+        for (let s = 0; s < steps; s++) {
+          p.vx += Noise2(p.x * 0.008 + s * 0.01, p.y * 0.008) * P.fxTurb * 1.5 * 0.15;
+          p.vy += Noise2(p.x * 0.008 + 100, p.y * 0.008 + s * 0.01) * P.fxTurb * 0.4 * 0.05;
+          const heat = 1 - p.age / p.maxAge;
+          p.vy -= heat * 0.12 * P.fxIntensity;
+          p.vx *= 0.97;
+          p.vy *= 0.97;
+          p.px = p.x;
+          p.py = p.y;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.age++;
+          if (p.age >= p.maxAge)
+            return;
+        }
+      } else if (p.type === 'water') {
+        for (let s = 0; s < steps; s++) {
+          if (P.style === 'water_ocean') {
+            p.vx *= 0.985;
+            p.vy *= 0.985;
+          } else if (P.style === 'water_rain') {
+            p.vy += 0.05 * P.fxIntensity;
+            if (p.y > H - 5 && !p.splashing) {
+              p.splashing = true;
+              p.vy = -Math.abs(p.vy) * 0.2;
+              p.vx += (Math.random() - 0.5) * 2;
+            }
+          } else {
+            p.vx *= 0.97;
+            p.vy *= 0.97;
+          }
+          p.px = p.x;
+          p.py = p.y;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.age++;
+          if (p.age >= p.maxAge)
+            return;
+        }
+      } else {
+        p.age = Math.min(steps, p.maxAge - 1);
+        p.hue = (p.hue + P.cspd * 0.001 * steps) % 1;
+      }
+    }
+
+    let particles = [];
+
+    function MkParticle() {
+      const s = P.style;
+      if (s.startsWith('fire_'))
+        return MkFireParticle(s);
+
+      if (s.startsWith('water_'))
+        return MkWaterParticle(s);
+      return MkFieldParticle();
+    }
+
+    function RebuildParticles() {
+      particles = [];
+      if (IsLightning())
+        return;
+
+      const n = P.pcount;
+      for (let i = 0; i < n; i++) {
+        const p = MkParticle();
+        const pre = Math.floor(Math.random() * p.maxAge);
+
+        if (pre > 0)
+          PreAge(p, pre);
+        particles.push(p);
+      }
+    }
+
+    RebuildParticles();
+
+    //vignette drawn on main canvas after bloom composite
+    function DrawVignette() {
+      if (P.vign < 0.02)
+        return;
+
+      if (!vigGrad) {
+        vigGrad = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.75);
+        vigGrad.addColorStop(0, 'rgba(0,0,0,0)');
+        vigGrad.addColorStop(1, `rgba(0,0,0,${P.vign})`);
+      }
+      ctx.save();
+      ctx.globalCompositeOperation = 'multiply';
+      ctx.fillStyle = vigGrad;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
+
+    let time = 0;
+    let paused = false;
+    let lastTs = 0
+
+    //main loop
+    function Tick(ts) {
+      const dt = Math.min((ts - lastTs) / 16.67, 3);
+      lastTs = ts;
+      if (!paused)
+        time += P.ndrift * dt;
+
+      //fade main canvas (persistent trail accumulation)
+      if (P.style.startsWith('fire_'))
+        ctx.fillStyle = `rgba(2,0,0,${P.trail})`;
+      else if (P.style.startsWith('water_'))
+        ctx.fillStyle = `rgba(0,2,8,${P.trail})`;
+      else if (P.style.startsWith('lt_'))
+        ctx.fillStyle = `rgba(0,0,2,${Math.max(P.trail, 0.04)})`;
+      else ctx.fillStyle = `rgba(0,0,0,${P.trail})`;
+
+      ctx.fillRect(0, 0, W, H);
+
+      //clear offscreen canvas
+      octx.clearRect(0, 0, W, H);
+
+      //update and draw particles onto offscreen canvas
+      if (IsLightning()) {
+        if (P.style === 'lt_ball') {
+          if (!ballLt) InitBallLightning();
+          UpdateBallLightning(dt);
+          DrawBallLightning(octx);
+        } else {
+          strikeTimer += dt;
+          const interval = 1 / (P.ltRate * 60);
+          if (strikeTimer >= interval) {
+            strikeTimer = 0;
+            if (Math.random() < P.fxIntensity * 0.8) TriggerStrike();
+          }
+        }
+        UpdateBoltsAndSparks(dt);
+        DrawBolts(octx);
+        DrawSparks(octx);
+        if (Math.random() < 0.06 * P.fxIntensity)
+          SpawnSparks(W * Math.random(), H * (0.5 + Math.random() * 0.5), 1 + Math.floor(Math.random() * 3), P.pal);
+      } else {
+        const spd = P.spd * P.fxIntensity * dt;
+        const cs = P.cspd * 0.001;
+        const cx = W / 2;
+        const cy = H / 2;
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          if (p.type === 'fire') {
+            if (UpdateFire(p, dt)) {
+              particles[i] = MkFireParticle(P.style);
+              continue;
+            }
+            DrawFire(p, octx);
+          } else if (p.type === 'water') {
+            if (UpdateWater(p, dt)) {
+              particles[i] = MkWaterParticle(P.style);
+              continue;
+            }
+            DrawWater(p, octx);
+          } else {
+            if (p.age > p.maxAge || p.x < -5 || p.x > W + 5 || p.y < -5 || p.y > H + 5) {
+              const np = MkFieldParticle();
+              np.maxAge = P.life * 0.5 + Math.random() * P.life;
+              particles[i] = np;
+              continue;
+            }
+            p.px = p.x;
+            p.py = p.y;
+            const angle = GetAngle(p.x, p.y, time);
+
+            //mass-weighted inertia: heavy particles carry old velocity longer
+            const inertia = 0.7 + p.mass * 0.2;
+            const response = 1 - inertia;
+            p.vx = p.vx * inertia + Math.cos(angle) * spd * response;
+            p.vy = p.vy * inertia + Math.sin(angle) * spd * response;
+            if (P.attr > 0) {
+              const dx = cx - p.x, dy = cy - p.y, d = Math.sqrt(dx * dx + dy * dy) + 1;
+              p.vx += dx / d * P.attr * 0.3 / p.mass;
+              p.vy += dy / d * P.attr * 0.3 / p.mass;
+            }
+            p.speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+            const maxSpd = spd * (1.2 + p.mass * 0.8);
+            if (p.speed > maxSpd) {
+              p.vx = p.vx / p.speed * maxSpd;
+              p.vy = p.vy / p.speed * maxSpd;
+              p.speed = maxSpd;
+            }
+            p.x += p.vx;
+            p.y += p.vy;
+            p.hue = (p.hue + cs * dt) % 1;
+            DrawFieldParticle(p, octx);
+            p.age++;
+          }
+        }
+      }
+      //offscreen -> main
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = 1;
+      ctx.drawImage(off, 0, 0);
+
+      //bloom pass
+      if (P.bloom > 0.01) {
+        ctx.globalAlpha = P.bloom;
+        ctx.filter = `blur(${P.bloomR}px)`;
+        ctx.drawImage(off, 0, 0);
+        // Second wider bloom for a soft halo
+        ctx.globalAlpha = P.bloom * 0.4;
+        ctx.filter = `blur(${P.bloomR * 3}px)`;
+        ctx.drawImage(off, 0, 0);
+        ctx.filter = 'none';
+      }
+      ctx.restore();
+
+      //vignette overlay
+      DrawVignette();
+
+      if (!paused)
+        requestAnimationFrame(Tick);
+    }
+
+    document.getElementById('btnPause').addEventListener('click', () => {
+      paused = !paused;
+      document.getElementById('btnPause').innerHTML = paused ? 'Play' : 'Pause';
+      if (!paused)
+        requestAnimationFrame(Tick);
+    });
+
+    MakeWells();
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    requestAnimationFrame(Tick);
+  })();
+</script>
+</body>
+</html>
